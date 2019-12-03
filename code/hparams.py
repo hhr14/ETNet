@@ -14,15 +14,17 @@ def get_hparams():
     parser.add_argument('--model_save_path', type=str)
     parser.add_argument('--dataset', type=str)
 
+    parser.add_argument('--plotattn', type=_str_to_bool, default=False)
     parser.add_argument('--predict_step', type=int, default=1)
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--load_epoch', type=int, default=None)
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--check_point_distance', type=int, default=5)
-    parser.add_argument('--output_folder', type=str, default='predict_result/fwh_npy')
-    parser.add_argument('--predict', type=str, default='sample/sample_ppg/',
+    parser.add_argument('--output_folder', type=str, default='../predict_result/fwh_npy')
+    parser.add_argument('--predict', type=str, default='../sample/sample_ppg/',
                         help='if mode is predict, this parameter represents the folder or file of ppg to be predicted')
+    parser.add_argument('--attention_path', type=str, default='../predict_result/attention/')
 
     parser.add_argument('--content_size', type=int, default=218)
     parser.add_argument('--refer_size', type=int, default=80)

@@ -71,16 +71,14 @@ def create_model(hparams, mode='train'):
         else:
             return ETNet(hparams), 0
     else:
-        mymodel = ETNet(hparams)
+        mymodel = ETNet(hparams, mode=mode)
         best_file_path = load_best_model(hparams.model_save_path, hparams)
         checkpoint = torch.load(best_file_path)
         mymodel.load_state_dict(checkpoint['model_state'])
         return mymodel
 
 
-def get_predict_file_list(path):
-    abspath = os.path.abspath('.')
-    predict_path = os.path.join(abspath, path)
+def get_predict_file_list(predict_path):
     if os.path.isfile(predict_path):
         return [predict_path]
     else:

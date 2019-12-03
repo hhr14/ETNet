@@ -6,7 +6,7 @@ from module import MultiHeadAttention, GSTReferenceEncoder, DNNReferenceEncoder,
 
 
 class ETNet(nn.Module):
-    def __init__(self, hparams):
+    def __init__(self, hparams, mode='train'):
         super().__init__()
         self.hparams = hparams
         if hparams.encoder_mode == 'GST':
@@ -18,10 +18,14 @@ class ETNet(nn.Module):
         self.ETLayer_ = ETLayer(hparams)
         self.ContentEncoder_ = ContentEncoder(hparams, hparams.content_size)
         self.Decoder_ = Decoder(hparams)
+        self.mode = mode
+        self.attention = None
 
     def forward(self, audio_input, txt_input):
         refEmbedding = self.RefEncoder_(audio_input)
-        ETEmbedding = self.ETLayer_(refEmbedding)
+        ETEmbedding, attention_ = self.ETLayer_(refEmbedding)
+        if self.mode == 'predict':
+            self.attention = attention_.cpu().detach().numpy()
         ContentEmbedding = self.ContentEncoder_(txt_input)
         if self.hparams.emotion_add_mode == 'cat':
             decoderInput = torch.cat([ETEmbedding, ContentEmbedding], dim=-1)
@@ -93,6 +97,6 @@ class ETLayer(nn.Module):
     def forward(self, encoder_states):
         batch_size = encoder_states.size(0)
         key = torch.tanh(self.embedding).unsqueeze(0).expand(batch_size, -1, -1)
-        ETEmbedding = self.attention(encoder_states, key)
-        return ETEmbedding
+        ETEmbedding, attention_ = self.attention(encoder_states, key)
+        return ETEmbedding, attention_
 

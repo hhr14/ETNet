@@ -117,7 +117,7 @@ class MultiHeadAttention(nn.Module):
         out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
         out = torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]
 
-        return out
+        return out, scores
 
 
 class DotAttention(nn.Module):

@@ -26,8 +26,8 @@ def get_hparams():
                         help='if mode is predict, this parameter represents the folder or file of ppg to be predicted')
     parser.add_argument('--attention_path', type=str, default='../predict_result/attention/')
 
-    parser.add_argument('--content_size', type=int, default=218)
-    parser.add_argument('--refer_size', type=int, default=80)
+    parser.add_argument('--content_size', type=int, default=219)
+    parser.add_argument('--refer_size', type=int, default=219)
     parser.add_argument('--output_size', type=int, default=81)
     #  MLPG
 

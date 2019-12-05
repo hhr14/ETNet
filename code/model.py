@@ -26,7 +26,9 @@ class ETNet(nn.Module):
         ETEmbedding, attention_ = self.ETLayer_(refEmbedding)
         if self.mode == 'predict':
             self.attention = attention_.cpu().detach().numpy()
+        print('into Content')
         ContentEmbedding = self.ContentEncoder_(txt_input)
+        print('out Content')
         if self.hparams.emotion_add_mode == 'cat':
             decoderInput = torch.cat([ETEmbedding, ContentEmbedding], dim=-1)
         elif self.hparams.emotion_add_mode == 'add':
@@ -72,6 +74,7 @@ class Decoder(nn.Module):
                                            for i in range(len(hparams.DecoderDenseList))])
 
     def forward(self, encoder_states):
+        print('into Decoder')
         output, hn = self.DecoderGRU(encoder_states)
         for i, dense in enumerate(self.DecoderDense):
             output = dense(output)

@@ -25,8 +25,9 @@ class ETDataset(Dataset):
         begin = self.sample_list[random_index][1]
         #  now input is : [ppg-218, mfcc-12+1, others-27, emotion-4]
         content_input = self.input[id][begin: begin + self.window_size, :self.content_size]
-        refer_input = self.input[id][begin: begin + self.window_size,
-                                     self.content_size: self.content_size + self.refer_size]
+        # refer_input = self.input[id][begin: begin + self.window_size,
+        #                              self.content_size: self.content_size + self.refer_size]
+        refer_input = self.input[id][begin: begin + self.window_size, :self.content_size]
         fwh_output = np.concatenate((self.output[id][begin: begin + self.window_size, 1: 28],
                                      self.output[id][begin: begin + self.window_size, 33: 60],
                                      self.output[id][begin: begin + self.window_size, 65: 92]), axis=1)

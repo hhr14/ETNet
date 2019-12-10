@@ -31,8 +31,10 @@ class ETDataset(Dataset):
         fwh_output = np.concatenate((self.output[id][begin: begin + self.window_size, 1: 28],
                                      self.output[id][begin: begin + self.window_size, 33: 60],
                                      self.output[id][begin: begin + self.window_size, 65: 92]), axis=1)
+        emotion_output = self.input[id][begin: begin + self.window_size, -4:]
+        emotion_output = np.argmax(emotion_output, axis=1)
 
-        return {'content': content_input, 'refer': refer_input, 'label': fwh_output}
+        return {'content': content_input, 'refer': refer_input, 'label': fwh_output, 'emotion': emotion_output}
 
     def __len__(self):
         # len must be real length of dataset, not size / batch_size

@@ -23,12 +23,10 @@ class ETNet(nn.Module):
 
     def forward(self, audio_input, txt_input):
         refEmbedding = self.RefEncoder_(audio_input)
-        ETEmbedding, attention_ = self.ETLayer_(refEmbedding)
+        ETEmbedding, attention_, attention_softmax = self.ETLayer_(refEmbedding)
         if self.mode == 'predict':
-            self.attention = attention_.cpu().detach().numpy()
-        print('into Content')
+            self.attention = attention_softmax.cpu().detach().numpy()
         ContentEmbedding = self.ContentEncoder_(txt_input)
-        print('out Content')
         if self.hparams.emotion_add_mode == 'cat':
             decoderInput = torch.cat([ETEmbedding, ContentEmbedding], dim=-1)
         elif self.hparams.emotion_add_mode == 'add':
@@ -36,7 +34,7 @@ class ETNet(nn.Module):
         else:
             raise ValueError('Illegal add mode accepted!')
         decoderOutput = self.Decoder_(decoderInput)
-        return decoderOutput
+        return decoderOutput, attention_
 
 
 class ContentEncoder(nn.Module):
@@ -74,7 +72,6 @@ class Decoder(nn.Module):
                                            for i in range(len(hparams.DecoderDenseList))])
 
     def forward(self, encoder_states):
-        print('into Decoder')
         output, hn = self.DecoderGRU(encoder_states)
         for i, dense in enumerate(self.DecoderDense):
             output = dense(output)
@@ -100,6 +97,6 @@ class ETLayer(nn.Module):
     def forward(self, encoder_states):
         batch_size = encoder_states.size(0)
         key = torch.tanh(self.embedding).unsqueeze(0).expand(batch_size, -1, -1)
-        ETEmbedding, attention_ = self.attention(encoder_states, key)
-        return ETEmbedding, attention_
+        ETEmbedding, attention_, attention_softmax = self.attention(encoder_states, key)
+        return ETEmbedding, attention_, attention_softmax
 

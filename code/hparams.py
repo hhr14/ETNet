@@ -13,10 +13,11 @@ def get_hparams():
     parser.add_argument('--gpu', type=str)
     parser.add_argument('--model_save_path', type=str)
     parser.add_argument('--dataset', type=str)
-
+    parser.add_argument('--attnloss', type=_str_to_bool, default=False)
     parser.add_argument('--plotattn', type=_str_to_bool, default=False)
-    parser.add_argument('--predict_step', type=int, default=1)
+
     parser.add_argument('--lr', type=float, default=0.0001)
+    parser.add_argument('--predict_step', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=64)
     parser.add_argument('--load_epoch', type=int, default=None)
     parser.add_argument('--epochs', type=int, default=100)
@@ -54,7 +55,7 @@ def get_hparams():
 
     #  For Tacotron Decoder.
     parser.add_argument('--num_units', type=int, default=256)
-    parser.add_argument('--num_heads', type=int, default=8)
+    parser.add_argument('--num_heads', type=int, default=1)
     parser.add_argument('--ref_enc_filters', type=list, default=[32, 32, 64, 64, 128, 128])
     parser.add_argument('--ref_enc_size', type=list, default=[3, 3])
     parser.add_argument('--ref_enc_strides', type=list, default=[2, 2])

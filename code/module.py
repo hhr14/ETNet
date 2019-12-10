@@ -111,13 +111,13 @@ class MultiHeadAttention(nn.Module):
         # score = softmax(QK^T / (d_k ** 0.5))
         scores = torch.matmul(querys, keys.transpose(2, 3))  # [h, N, T_q, T_k]
         scores = scores / (self.key_dim ** 0.5)
-        scores = F.softmax(scores, dim=3)
+        scores_softmax = F.softmax(scores, dim=3)
 
         # out = score * V
-        out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
+        out = torch.matmul(scores_softmax, values)  # [h, N, T_q, num_units/h]
         out = torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]
 
-        return out, scores
+        return out, scores, scores_softmax
 
 
 class DotAttention(nn.Module):

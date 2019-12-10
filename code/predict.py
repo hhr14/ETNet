@@ -26,12 +26,13 @@ def predict(hparams, predict_file_list, ppg_scaler, fwh_scaler, mymodel, device)
         end = begin + hparams.window_size
         while end <= input.shape[0]:
             content_input = input[begin: end, : hparams.content_size]
-            content_input = torch.from_numpy(content_input).to(device)
-            ref_input = input[begin: end, hparams.content_size: hparams.content_size + hparams.refer_size]
-            ref_input = ref_input[np.newaxis, :]
             content_input = content_input[np.newaxis, :]
+            content_input = torch.from_numpy(content_input).to(device)
+            # ref_input = input[begin: end, hparams.content_size: hparams.content_size + hparams.refer_size]
+            ref_input = input[begin: end, : hparams.content_size]
+            ref_input = ref_input[np.newaxis, :]
             ref_input = torch.from_numpy(ref_input).to(device)
-            output = mymodel(ref_input.float(), content_input.float())
+            output, attention_ = mymodel(ref_input.float(), content_input.float())
             attention_predict[:, begin: end, :] += mymodel.attention.squeeze()
             fwh_predict[begin: end, :] += (output.cpu().detach().numpy()).reshape((-1, hparams.output_size))
             fwh_count[begin: end, :] += 1

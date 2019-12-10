@@ -22,6 +22,7 @@ def train(input_train, input_validate, fwh_train, fwh_validate, mymodel, device,
                                  shuffle=False, num_workers=4)
     optimizer = optim.Adam(mymodel.parameters(), lr=hparams.lr)
     loss_func = nn.MSELoss()
+    loss_attention_func = nn.CrossEntropyLoss()
     for e in range(hparams.epochs):
         print('\n\nepoch:', e)
         epoch_ave_loss_list = {'train': [], 'eval': []}
@@ -33,15 +34,25 @@ def train(input_train, input_validate, fwh_train, fwh_validate, mymodel, device,
             else:
                 mymodel.eval()
                 loader = validate_loader
+            num_correct = 0
+            total = 0
             for b, data in enumerate(loader):
-                # content = data['content'].double().to(device)
-                # print('content.dtype', content.dtype)
                 content = data['content'].to(device)
                 refer = data['refer'].to(device)
                 label = data['label'].to(device)
+                emotion = data['emotion'].to(device)
+                # emotion : [batch_size, window_size]
                 optimizer.zero_grad()
-                output = mymodel(refer.float(), content.float())
-                loss = loss_func(label.float(), output)
+                output, attention_output = mymodel(refer.float(), content.float())
+                loss = loss_func(output, label.float())
+                if hparams.attnloss is True:
+                    attention_output_ = torch.squeeze(attention_output, dim=0).permute([0, 2, 1])
+                    loss_attention = loss_attention_func(attention_output_, emotion)
+                    pred_emotion = attention_output_.argmax(dim=1)
+                    num_correct += torch.eq(pred_emotion, emotion).sum().item()
+                    total += (emotion.size(0) * hparams.window_size)
+                    # print('step:', b, 'emotion_loss', loss_attention.item(), 'output_loss', loss.item())
+                    loss = loss + loss_attention
                 if mode == 'train':
                     loss.backward()
                     optimizer.step()
@@ -49,7 +60,8 @@ def train(input_train, input_validate, fwh_train, fwh_validate, mymodel, device,
                 epoch_ave_loss_list[mode].append(loss.item())
 
             epoch_ave_loss = np.mean(epoch_ave_loss_list[mode])
-            print(mode + '_loss:', epoch_ave_loss)
+            print(mode + '_loss:', epoch_ave_loss, mode + '_emotion_acc:',
+                  num_correct / total)
 
         if (e + 1) % hparams.check_point_distance == 0:
             epoch = e + 1 + recent_epoch
@@ -73,8 +85,8 @@ if __name__ == "__main__":
     mymodel = mymodel.float()
     mymodel.to(device)
     print(mymodel)
-    summary(mymodel, [(hparams.window_size, hparams.refer_size),
-                      (hparams.window_size, hparams.content_size)], batch_size=1, device='cuda')
+    # summary(mymodel, [(hparams.window_size, hparams.refer_size),
+    #                   (hparams.window_size, hparams.content_size)], batch_size=1, device='cuda')
     ppg_train, ppg_validate, ppg_evaluate, fwh_train, fwh_validate, fwh_evaluate, train_mask, \
     validate_mask, evaluate_mask = Utils.load_data(hparams)
     train(ppg_train, ppg_validate, fwh_train, fwh_validate, mymodel, device, recent_epoch)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 import numpy as np
-from module import MultiHeadAttention, GSTReferenceEncoder, DNNReferenceEncoder, DotAttention
+from module import MultiHeadAttention, GSTReferenceEncoder, DNNReferenceEncoder, DotAttention, EmotionClassifier
 
 
 class ETNet(nn.Module):
@@ -15,6 +15,16 @@ class ETNet(nn.Module):
             self.RefEncoder_ = DNNReferenceEncoder(hparams, hparams.refer_size)
         else:
             raise ValueError('Illegal ref_encoder mode accepted!')
+        if hparams.EBLoss is True:
+            self.EmotionEmbeedingClassifier = EmotionClassifier(hparams, hparams.num_units,
+                                                                hparams.classify_gru_size,
+                                                                hparams.classify_gru_layers,
+                                                                hparams.classify_dense_list)
+        if hparams.FwhLoss is True:
+            self.FwhClassifier = EmotionClassifier(hparams, hparams.output_size,
+                                                   hparams.classify_gru_size,
+                                                   hparams.classify_gru_layers,
+                                                   hparams.classify_dense_list)
         self.ETLayer_ = ETLayer(hparams)
         self.ContentEncoder_ = ContentEncoder(hparams, hparams.content_size)
         self.Decoder_ = Decoder(hparams)
@@ -24,6 +34,10 @@ class ETNet(nn.Module):
     def forward(self, audio_input, txt_input):
         refEmbedding = self.RefEncoder_(audio_input)
         ETEmbedding, attention_, attention_softmax = self.ETLayer_(refEmbedding)
+        if self.hparams.EBLoss is True:
+            E1 = self.EmotionEmbeedingClassifier(ETEmbedding)
+        else:
+            E1 = None
         if self.mode == 'predict':
             self.attention = attention_softmax.cpu().detach().numpy()
         ContentEmbedding = self.ContentEncoder_(txt_input)
@@ -34,7 +48,11 @@ class ETNet(nn.Module):
         else:
             raise ValueError('Illegal add mode accepted!')
         decoderOutput = self.Decoder_(decoderInput)
-        return decoderOutput, attention_
+        if self.hparams.FwhLoss is True:
+            E2 = self.FwhClassifier(decoderOutput)
+        else:
+            E2 = None
+        return decoderOutput, attention_, E1, E2
 
 
 class ContentEncoder(nn.Module):

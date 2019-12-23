@@ -34,25 +34,41 @@ def train(input_train, input_validate, fwh_train, fwh_validate, mymodel, device,
             else:
                 mymodel.eval()
                 loader = validate_loader
-            num_correct = 0
-            total = 0
+            num_correct = [0, 0, 0]
+            total = [1e-15, 1e-15, 1e-15]
             for b, data in enumerate(loader):
                 content = data['content'].to(device)
                 refer = data['refer'].to(device)
                 label = data['label'].to(device)
                 emotion = data['emotion'].to(device)
+                emotion_sentence = data['emotion_sentence'].to(device)
                 # emotion : [batch_size, window_size]
                 optimizer.zero_grad()
-                output, attention_output = mymodel(refer.float(), content.float())
+                output, attention_output, E1, E2 = mymodel(refer.float(), content.float())
                 loss = loss_func(output, label.float())
                 if hparams.attnloss is True:
                     attention_output_ = torch.squeeze(attention_output, dim=0).permute([0, 2, 1])
                     loss_attention = loss_attention_func(attention_output_, emotion)
                     pred_emotion = attention_output_.argmax(dim=1)
-                    num_correct += torch.eq(pred_emotion, emotion).sum().item()
-                    total += (emotion.size(0) * hparams.window_size)
+                    num_correct[0] += torch.eq(pred_emotion, emotion).sum().item()
+                    total[0] += (emotion.size(0) * hparams.window_size)
                     # print('step:', b, 'emotion_loss', loss_attention.item(), 'output_loss', loss.item())
                     loss = loss + loss_attention
+                if hparams.EBLoss is True:
+                    loss_E1_func = nn.CrossEntropyLoss()
+                    lossE1 = loss_E1_func(E1, emotion_sentence)
+                    #  E1: [batch, 4] (argmax)-> [batch]
+                    pred_emotion_sentence = E1.argmax(dim=-1)
+                    num_correct[1] += torch.eq(pred_emotion_sentence, emotion_sentence).sum().item()
+                    total[1] += emotion_sentence.size(0)
+                    loss = loss + lossE1
+                if hparams.FwhLoss is True:
+                    loss_E2_func = nn.CrossEntropyLoss()
+                    lossE2 = loss_E2_func(E2, emotion_sentence)
+                    pred_emotion_sentence = E2.argmax(dim=-1)
+                    num_correct[2] += torch.eq(pred_emotion_sentence, emotion_sentence).sum().item()
+                    total[2] += emotion_sentence.size(0)
+                    loss = loss + lossE2
                 if mode == 'train':
                     loss.backward()
                     optimizer.step()
@@ -61,7 +77,8 @@ def train(input_train, input_validate, fwh_train, fwh_validate, mymodel, device,
 
             epoch_ave_loss = np.mean(epoch_ave_loss_list[mode])
             print(mode + '_loss:', epoch_ave_loss, mode + '_emotion_acc:',
-                  num_correct / total)
+                  num_correct[0] / total[0], mode + '_emotionEmbedding_acc', num_correct[1] / total[1],
+                  mode + '_output_acc', num_correct[2] / total[2])
 
         if (e + 1) % hparams.check_point_distance == 0:
             epoch = e + 1 + recent_epoch

@@ -14,6 +14,9 @@ def get_hparams():
     parser.add_argument('--model_save_path', type=str)
     parser.add_argument('--dataset', type=str)
     parser.add_argument('--attnloss', type=_str_to_bool, default=False)
+    parser.add_argument('--EBLoss', type=_str_to_bool, default=False)
+    parser.add_argument('--FwhLoss', type=_str_to_bool, default=False)
+    parser.add_argument('--CNNencoder', type=_str_to_bool, default=False)
     parser.add_argument('--plotattn', type=_str_to_bool, default=False)
 
     parser.add_argument('--lr', type=float, default=0.0001)
@@ -53,13 +56,18 @@ def get_hparams():
     parser.add_argument('--DecoderDenseList', type=list, default=[256, 128, 81])
     parser.add_argument('--dprate', type=float, default=0.1)
 
+    #  For Emotion classifier
+    parser.add_argument('--classify_gru_layers', type=int, default=1)
+    parser.add_argument('--classify_gru_size', type=int, default=128)
+    parser.add_argument('--classify_dense_list', type=list, default=[64, 32, 16, 4])
+
     #  For Tacotron Decoder.
     parser.add_argument('--num_units', type=int, default=256)
-    parser.add_argument('--num_heads', type=int, default=1)
+    parser.add_argument('--num_heads', type=int, default=8)
     parser.add_argument('--ref_enc_filters', type=list, default=[32, 32, 64, 64, 128, 128])
-    parser.add_argument('--ref_enc_size', type=list, default=[3, 3])
-    parser.add_argument('--ref_enc_strides', type=list, default=[2, 2])
-    parser.add_argument('--ref_enc_pad', type=list, default=[1, 1])
+    parser.add_argument('--ref_enc_kernel_size', type=list, default=[3, 3])
+    parser.add_argument('--ref_enc_strides', type=list, default=[1, 2])
+    parser.add_argument('--ref_enc_pad', type=list, default=[1, 0])
     parser.add_argument('--ref_enc_gru_size', type=int, default=128)
     parser.add_argument('--ref_enc_gru_layers', type=int, default=2)
 

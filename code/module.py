@@ -1,6 +1,13 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+from torch.nn.parameter import Parameter
+from torch.nn.functional import pad
+from torch.nn.modules import Module
+from torch.nn.modules.utils import _single, _pair, _triple
+import torch.utils.data
+from torch.nn import functional as F
+import math
 
 
 class GSTReferenceEncoder(nn.Module):
@@ -9,28 +16,39 @@ class GSTReferenceEncoder(nn.Module):
     outputs --- [N, ref_enc_gru_size * 2=256]
     '''
 
-    def __init__(self, hp):
+    def __init__(self, hparams):
 
         super().__init__()
-        self.hp = hp
-        K = len(hp.ref_enc_filters)
-        filters = [1] + hp.ref_enc_filters
-        convs = [nn.Conv2d(in_channels=filters[i],
-                           out_channels=filters[i + 1],
-                           kernel_size=(3, 3),
-                           stride=(2, 2),
-                           padding=(1, 1)) for i in range(K)]
-        self.convs = nn.ModuleList(convs)
-        self.bns = nn.ModuleList([nn.BatchNorm2d(num_features=hp.ref_enc_filters[i]) for i in range(K)])
+        self.hparams = hparams
 
-        out_channels = self.calculate_channels(hp.refer_size, 3, 2, 1, K)
+        # K = len(hp.ref_enc_filters)
+        # filters = [1] + hp.ref_enc_filters
+        # convs = [nn.Conv2d(in_channels=filters[i],
+        #                    out_channels=filters[i + 1],
+        #                    kernel_size=(3, 3),
+        #                    stride=(2, 2),
+        #                    padding=(1, 1)) for i in range(K)]
+        # self.convs = nn.ModuleList(convs)
+        # self.bns = nn.ModuleList([nn.BatchNorm2d(num_features=hp.ref_enc_filters[i]) for i in range(K)])
+        #
+        # out_channels = self.calculate_channels(hp.refer_size, 3, 2, 1, K)
         # self.gru = nn.GRU(input_size=hp.ref_enc_filters[-1] * out_channels,
         #                   hidden_size=hp.ref_gru_size,
         #                   batch_first=True)
-        self.gru = nn.GRU(input_size=hp.refer_size,
-                          hidden_size=hp.ref_enc_gru_size,
+        filters = [1] + hparams.ref_enc_filters
+        if self.hparams.CNNencoder is True:
+            self.conv_list = nn.ModuleList([nn.Sequential(nn.Conv2d(in_channels=filters[i],
+                                                                    out_channels=filters[i + 1],
+                                                                    kernel_size=hparams.ref_enc_kernel_size,
+                                                                    stride=hparams.ref_enc_strides,
+                                                                    padding=hparams.ref_enc_pad),
+                                                          nn.BatchNorm2d(num_features=hparams.ref_enc_filters[i]),
+                                                          nn.ReLU())
+                                            for i in range(len(hparams.ref_enc_filters))])
+        self.gru = nn.GRU(input_size=hparams.refer_size,
+                          hidden_size=hparams.ref_enc_gru_size,
                           batch_first=True,
-                          num_layers=hp.ref_enc_gru_layers,
+                          num_layers=hparams.ref_enc_gru_layers,
                           bidirectional=True)
 
     def forward(self, inputs):
@@ -50,7 +68,19 @@ class GSTReferenceEncoder(nn.Module):
         # memory, out = self.gru(out)  # out --- [1, N, E//2]
         #
         # return out.squeeze(0)
-        output, hn = self.gru(inputs)
+
+        # inputs : [batch, window_size, feature] -> [batch, 1, window_size, feature]
+        if self.hparams.CNNencoder is True:
+            conv_out = inputs.unsqueeze(1)
+            for i, conv in enumerate(self.conv_list):
+                conv_out = conv(conv_out)
+            # conv_out : [batch, 128, window_size, feature/2^K]
+            conv_out = conv_out.transpose(1, 2)
+            conv_out = torch.reshape(conv_out, (conv_out.size(0), conv_out.size(1), -1))
+            # conv_out : [batch, window_size, 128 * feature / 2^K]
+            output, hn = self.gru(conv_out)
+        else:
+            output, hn = self.gru(inputs)
         return output
 
     def calculate_channels(self, L, kernel_size, stride, pad, n_convs):
@@ -131,6 +161,30 @@ class DotAttention(nn.Module):
         e = nn.Softmax(dim=-1)(a)
         c = torch.bmm(e, key)  # c : [b, to, h]
         return c
+
+
+class EmotionClassifier(nn.Module):
+    def __init__(self, hparams, input_size, hidden_size, num_layers, dense_list):
+        super(EmotionClassifier, self).__init__()
+        self.hparams = hparams
+        self.gru = nn.GRU(input_size=input_size,
+                          hidden_size=hidden_size,
+                          num_layers=num_layers,
+                          batch_first=True)
+        size_list = [hidden_size] + dense_list
+        self.denselist = nn.ModuleList([nn.Sequential(nn.Linear(in_features=size_list[i],
+                                                            out_features=size_list[i + 1]),
+                                                  nn.Dropout(p=hparams.dprate))
+                                    for i in range(len(dense_list))])
+
+    def forward(self, inputs):
+        output, hn = self.gru(inputs)
+        #  hn: [num_directions * num_layers=1, batch, hidden_size], represents last output of each layer
+        y = hn.squeeze(0)
+        for i, dense in enumerate(self.denselist):
+            y = dense(y)
+        #  y: [batch, 4]
+        return y
 
 
 #  following part is TacotronContentEncoder
@@ -321,3 +375,4 @@ class Highway(nn.Module):
         out = H * T + inputs * (1.0 - T)
 
         return out
+
